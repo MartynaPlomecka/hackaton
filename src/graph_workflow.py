@@ -1,6 +1,3 @@
-#graph_workflow.py
-
-
 from typing import Dict, List, TypedDict, Annotated, Optional
 from langgraph.graph import Graph, StateGraph
 from langchain_core.messages import BaseMessage
@@ -9,8 +6,10 @@ import operator
 from enum import Enum
 import logging
 from dataclasses import dataclass
+import networkx as nx
 from .core import ModelState
 from .knowledge_graph import CognitiveKnowledgeGraph
+from .transformations import ThoughtTransformations
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +28,18 @@ class ModelDiscoveryGraph:
             model="gpt-4-turbo-preview",
             temperature=0.7,
         )
+        # Graph structure for tracking thoughts
+        self.thought_graph = nx.DiGraph()
+        self.transformations = ThoughtTransformations(self.llm)
+        
         # Init metrics structure
         self.default_metrics = {
             'scores': [],
             'model_complexity': [],
             'iterations': [],
-            'exploration_paths': []
+            'exploration_paths': [],
+            'thought_volumes': [],  # GoT metric
+            'thought_latencies': [] # GoT metric
         }
 
     async def run_workflow(self, state: AgentState) -> AgentState:
@@ -43,11 +48,21 @@ class ModelDiscoveryGraph:
             # Execute workflow steps sequentially
             state = await self.query_knowledge_node(state)
             state = await self.generate_hypothesis_node(state)
+            
+            # GoT operations, update!
+            state = await self.aggregate_thoughts_node(state)
+            state = await self.refine_thought_node(state)
+            
             state = await self.evaluate_model_node(state)
             state = await self.update_knowledge_node(state)
             state = await self.check_convergence_node(state)
             
-            # Check if we should continue or end
+            # Compute GoT metrics
+            metrics = self.compute_thought_metrics(state["current_model"])
+            state["metrics"]["thought_volumes"].append(metrics["volume"])
+            state["metrics"]["thought_latencies"].append(metrics["latency"])
+            
+            # Check if we should continue or end :D
             next_step = self.decide_next_step(state)
             if next_step == "complete":
                 state = await self.end_workflow_node(state)
@@ -58,12 +73,76 @@ class ModelDiscoveryGraph:
             logger.error(f"Error in workflow execution: {e}")
             return state
 
+    async def aggregate_thoughts_node(self, state: AgentState) -> AgentState:
+        """GoT: Node for aggregating multiple thoughts"""
+        try:
+            # Get recent models from graph
+            recent_models = list(self.thought_graph.nodes())[-3:]  # Last 3 thoughts
+            if len(recent_models) > 1:
+                aggregated_model = await self.transformations.aggregate_thoughts(recent_models)
+                if aggregated_model:
+                    # Add to graph with edges from parents
+                    self.thought_graph.add_node(aggregated_model)
+                    for model in recent_models:
+                        self.thought_graph.add_edge(model, aggregated_model)
+                    state["current_model"] = aggregated_model
+        except Exception as e:
+            logger.error(f"Error in aggregate_thoughts_node: {e}")
+        return state
+
+    async def refine_thought_node(self, state: AgentState) -> AgentState:
+        """GoT: Node for refining a thought"""
+        try:
+            refined_model = await self.transformations.refine_thought(state["current_model"])
+            if refined_model:
+                # Add refinement to graph with self-loop
+                self.thought_graph.add_node(refined_model)
+                self.thought_graph.add_edge(state["current_model"], refined_model)
+                self.thought_graph.add_edge(refined_model, refined_model)  # Self-loop
+                state["current_model"] = refined_model
+        except Exception as e:
+            logger.error(f"Error in refine_thought_node: {e}")
+        return state
+
+    def compute_thought_metrics(self, thought: ModelState) -> Dict:
+        """GoT: Compute volume and latency metrics for a thought"""
+        try:
+            if not self.thought_graph.has_node(thought):
+                return {"volume": 0, "latency": 0}
+            
+            # Volume: number of predecessor thoughts
+            volume = len(nx.ancestors(self.thought_graph, thought))
+            
+            # Latency: longest path to this thought
+            root_nodes = [n for n in self.thought_graph.nodes() 
+                         if self.thought_graph.in_degree(n) == 0]
+            
+            if not root_nodes:
+                return {"volume": volume, "latency": 0}
+                
+            paths = []
+            for root in root_nodes:
+                if nx.has_path(self.thought_graph, root, thought):
+                    paths.extend(nx.all_simple_paths(self.thought_graph, root, thought))
+            
+            latency = max(len(path) for path in paths) if paths else 0
+            
+            return {"volume": volume, "latency": latency}
+            
+        except Exception as e:
+            logger.error(f"Error computing thought metrics: {e}")
+            return {"volume": 0, "latency": 0}
+
     async def query_knowledge_node(self, state: AgentState) -> AgentState:
         """Node for querying knowledge graph"""
         try:
             current_mechanism = self._extract_mechanism(state["current_model"])
             knowledge = self.kg.query_mechanism(current_mechanism)
             state["knowledge"] = knowledge
+            
+            # Add initial thought to graph if not present
+            if not self.thought_graph.has_node(state["current_model"]):
+                self.thought_graph.add_node(state["current_model"])
         except Exception as e:
             logger.error(f"Error in query_knowledge_node: {e}")
         return state
@@ -80,11 +159,15 @@ class ModelDiscoveryGraph:
             response = await self.llm.agenerate([messages])
             new_model = self._parse_llm_response(response.generations[0][0].text)
             if new_model:
+                # Add to thought graph with edge from current model
+                self.thought_graph.add_node(new_model)
+                self.thought_graph.add_edge(state["current_model"], new_model)
                 state["current_model"] = new_model
         except Exception as e:
             logger.error(f"Error in generate_hypothesis_node: {e}")
         return state
-    
+
+   
     async def evaluate_model_node(self, state: AgentState) -> AgentState:
         """Node for evaluating models"""
         try:

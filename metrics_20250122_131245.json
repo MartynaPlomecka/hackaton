@@ -1,0 +1,10 @@
+{
+  "scores": [],
+  "model_complexity": [],
+  "iterations": [],
+  "exploration_paths": [],
+  "thought_volumes": [],
+  "thought_latencies": [],
+  "aggregation_counts": [],
+  "refinement_counts": []
+}
