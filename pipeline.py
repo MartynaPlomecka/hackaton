@@ -1,3 +1,11 @@
+# `pipeline.py`:
+
+# - coordinates everything
+# - Balances exploration vs refinement
+# - Keeps track of the best models found
+# - Manages a pool of promising models
+
+
 import asyncio
 from src.core import ModelState, generate_test_data
 from src.mcts_kg import EnhancedMCTS, MCTSNode

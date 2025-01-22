@@ -1,3 +1,8 @@
+# src/knowledge_graph.py
+# - Stores known information about cognitive mechanisms
+# - Helps guide the search toward promising directions. 
+# this is very basic ! but works
+
 import networkx as nx
 from typing import Dict, List, Optional, Any
 from .core import ModelState
@@ -9,6 +14,7 @@ class CognitiveKnowledgeGraph:
     def __init__(self):
         self.graph = nx.DiGraph()
         self._initialize_mock_knowledge()
+    
     
     def query_mechanism(self, mechanism: str) -> Dict:
         """Get information about a specific mechanism including best models"""

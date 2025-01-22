@@ -1,3 +1,10 @@
+# src/graph_workflow.py
+
+# - Manages the step-by-step process of discovering models
+# - Controls when to generate, evaluate, and modify models
+# - Includes steps for combining promising models
+# - Tracks how models relate to each other
+
 from typing import Dict, List, TypedDict, Annotated, Optional
 from langgraph.graph import Graph, StateGraph
 from langchain_core.messages import BaseMessage

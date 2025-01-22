@@ -1,3 +1,9 @@
+# src/evaluation.py:
+
+# - Tests how well models perform
+# - Computes scores for each model
+
+
 from typing import Dict, List, Tuple
 import numpy as np
 from .core import ModelState
@@ -13,7 +19,7 @@ class SimpleEvaluator:
         Evaluate a model based on:
         1. Prediction accuracy
         2. Model complexity (penalty)
-        3. Parameter reasonableness
+        3. Parameter reasonableness :D
         """
         equation_key = ''.join(state.equations)
         if equation_key in self.cached_scores:

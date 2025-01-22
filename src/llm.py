@@ -1,4 +1,7 @@
-#here is the llm.py
+# src/llm.py:
+
+# - Handles communication with the language model
+# - Formats prompts and parses responses
 
 import os
 from typing import Dict, List, Optional

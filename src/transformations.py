@@ -1,4 +1,10 @@
-#  src/transformations.py
+#  src/transformations.py:
+
+# - Handles combining multiple models into better ones
+# - Uses LLM to refine models
+# - Creates prompts for model improvement
+# - Fallback strategies when LLM suggestions fail
+
 
 import numpy as np
 from typing import List

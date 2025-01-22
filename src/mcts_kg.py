@@ -1,3 +1,10 @@
+# mcts_kg.py
+
+# - Search algorithm that explores different model variations
+# - Uses knowledge graph to guide search
+# - !!!! has graph-based tracking of model relationships !!!
+# - Can combine and refine models based on their relationships
+
 from typing import Dict, Optional, List
 import math
 import networkx as nx
