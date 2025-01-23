@@ -2,7 +2,7 @@ from pyvis.network import Network
 import IPython
 import matplotlib.pyplot as plt
 import networkx
-
+# function to plot the knowledge graph
 
 ### help link = https://gist.github.com/quadrismegistus/92a7fba479fc1e7d2661909d19d4ae7e
 def plot_graph(NxGr):
